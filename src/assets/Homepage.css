@@ -1,0 +1,19 @@
+.container {
+    padding: 20px;
+    text-align: center;
+  }
+  
+  .searchBar {
+    padding: 10px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    width: 200px;
+  }
+  
+  .grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
