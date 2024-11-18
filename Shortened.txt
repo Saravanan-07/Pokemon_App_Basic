@@ -1,0 +1,486 @@
+Lexical Analyzer
+
+#include <ctype.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_LENGTH 100
+
+// Function to check if a character is a delimiter
+bool isDelimiter(char chr) {
+    return strchr(" +-*/%><=,;()[]{}", chr) != NULL;
+}
+
+// Function to check if a character is an operator
+bool isOperator(char chr) {
+    return strchr("+-*/><=", chr) != NULL;
+}
+
+// Function to check if a string is a valid identifier
+bool isValidIdentifier(char* str) {
+    return isalpha(str[0]) || str[0] == '_';
+}
+
+// Function to check if a string is a keyword
+bool isKeyword(char* str) {
+    const char* keywords[] = {
+        "auto", "break", "case", "char", "const", "continue", "default", 
+        "do", "double", "else", "enum", "extern", "float", "for", "goto", 
+        "if", "int", "long", "register", "return", "short", "signed", 
+        "sizeof", "static", "struct", "switch", "typedef", "union", 
+        "unsigned", "void", "volatile", "while"
+    };
+    int keywordCount = sizeof(keywords) / sizeof(keywords[0]);
+    for (int i = 0; i < keywordCount; i++) {
+        if (strcmp(str, keywords[i]) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Function to check if a string represents an integer
+bool isInteger(char* str) {
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (!isdigit(str[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Function to extract a substring
+char* getSubstring(char* str, int start, int end) {
+    int subLength = end - start + 1;
+    char* subStr = (char*)malloc((subLength + 1) * sizeof(char));
+    strncpy(subStr, str + start, subLength);
+    subStr[subLength] = '\0';
+    return subStr;
+}
+
+// Lexical analyzer function
+void lexicalAnalyzer(char* input) {
+    int left = 0, right = 0;
+    int len = strlen(input);
+
+    while (right <= len) {
+        // Skip non-delimiters to identify a token
+        if (input[right] != '\0' && !isDelimiter(input[right])) {
+            right++;
+            continue;
+        }
+
+        // Process the token when a delimiter is found
+        if (left != right) {
+            char* subStr = getSubstring(input, left, right - 1);
+            if (isKeyword(subStr)) {
+                printf("Token: Keyword, Value: %s\n", subStr);
+            } else if (isInteger(subStr)) {
+                printf("Token: Integer, Value: %s\n", subStr);
+            } else if (isValidIdentifier(subStr)) {
+                printf("Token: Identifier, Value: %s\n", subStr);
+            } else {
+                printf("Token: Unidentified, Value: %s\n", subStr);
+            }
+            free(subStr);
+        }
+
+        // Handle single-character delimiters
+        if (input[right] != '\0' && isOperator(input[right])) {
+            printf("Token: Operator, Value: %c\n", input[right]);
+        }
+
+        // Move pointers
+        right++;
+        left = right;
+    }
+}
+
+// Main function
+int main() {
+    char input[MAX_LENGTH];
+
+    printf("Enter an expression to analyze (up to %d characters): ", MAX_LENGTH);
+    fgets(input, MAX_LENGTH, stdin);
+
+    // Remove the trailing newline character
+    input[strcspn(input, "\n")] = '\0';
+
+    printf("Analyzing Expression: \"%s\"\n", input);
+    lexicalAnalyzer(input);
+
+    return 0;
+}
+
+/*a+b+c+d>/*/
+
+
+-------------------------------------------------------------------------------------
+
+
+Symbol Table
+
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+#define MAX_VARIABLES 25
+#define MAX_LENGTH 100
+#define DEFAULT_VALUE "garbage"
+
+struct SymbolTable {
+    int lineNo;
+    char variable[25];
+    char dataType[25];
+    char value[25];
+} symbols[MAX_VARIABLES];
+
+int main() {
+    int symbolCount = 0, lineNo = 0;
+    char input[MAX_LENGTH], currentType[25];
+
+    while (1) {
+        printf("Enter a declaration (or 'exit' to finish): ");
+        fgets(input, sizeof(input), stdin);
+
+        // Remove trailing newline character
+        input[strcspn(input, "\n")] = '\0';
+
+        // Exit condition
+        if (strcmp(input, "exit") == 0)
+            break;
+
+        // Extract datatype
+        char *token = strtok(input, " ");
+        if (token == NULL || (strcmp(token, "int") != 0 && strcmp(token, "float") != 0 && strcmp(token, "char") != 0)) {
+            printf("Invalid declaration. Please try again.\n");
+            continue;
+        }
+
+        strcpy(currentType, token); // Store the datatype
+        lineNo++; // Increment line number for new declaration
+
+        // Process variables
+        while ((token = strtok(NULL, ",;")) != NULL) {
+            // Skip leading whitespace
+            while (isspace(*token))
+                token++;
+
+            if (symbolCount >= MAX_VARIABLES) {
+                printf("Symbol table limit reached.\n");
+                break;
+            }
+
+            symbols[symbolCount].lineNo = lineNo;
+            strcpy(symbols[symbolCount].dataType, currentType);
+
+            // Check for assignment
+            char *equalsSign = strchr(token, '=');
+            if (equalsSign != NULL) {
+                *equalsSign = '\0'; // Split at '='
+                strcpy(symbols[symbolCount].variable, token); // Variable name
+                strcpy(symbols[symbolCount].value, equalsSign + 1); // Value
+            } else {
+                strcpy(symbols[symbolCount].variable, token); // Variable name
+                strcpy(symbols[symbolCount].value, DEFAULT_VALUE); // Default value
+            }
+            symbolCount++;
+        }
+    }
+
+    // Display the symbol table
+    printf("\nSYMBOL TABLE MANAGEMENT\n");
+    printf("Variable\tDatatype\tLine No.\tValue\n");
+    printf("----------------------------------------------------\n");
+
+    for (int i = 0; i < symbolCount; i++) {
+        printf("%s\t\t%s\t\t%d\t\t%s\n",
+               symbols[i].variable,
+               symbols[i].dataType,
+               symbols[i].lineNo,
+               symbols[i].value);
+    }
+
+    return 0;
+}
+
+/*
+Example Inputs:
+int a, b = 5;
+float c;
+char d = 'a';
+*/
+
+
+-------------------------------------------------------------------------------------
+
+
+Front End
+
+#include <stdio.h>
+#include <string.h>
+
+int tempVarCounter = 1; // Counter for temporary variables
+
+// Function to generate and print a temporary variable assignment
+void generateTemp(char *result, const char *left, char op, const char *right) {
+    printf("t%d = %s %c %s\n", tempVarCounter, left, op, right);
+    sprintf(result, "t%d", tempVarCounter++);
+}
+
+// Function to process expressions, handling operator precedence
+void processExpression(char *expr, char *result) {
+    int i, opIndex = -1;
+    char left[50], right[50], op;
+
+    // Determine operator based on precedence
+    for (i = 0; expr[i] != '\0'; i++) {
+        if (strchr("*/", expr[i])) { opIndex = i; break; }
+    }
+    if (opIndex == -1) {
+        for (i = 0; expr[i] != '\0'; i++) {
+            if (strchr("+-", expr[i])) { opIndex = i; break; }
+        }
+    }
+
+    // Process operation or set result directly
+    if (opIndex != -1) {
+        op = expr[opIndex];
+        strncpy(left, expr, opIndex); left[opIndex] = '\0';
+        strcpy(right, expr + opIndex + 1);
+        char tempLeft[50], tempRight[50];
+        processExpression(left, tempLeft);
+        processExpression(right, tempRight);
+        generateTemp(result, tempLeft, op, tempRight);
+    } else {
+        strcpy(result, expr); // No operator, copy expression
+    }
+}
+
+// Function to handle parentheses recursively
+void processParentheses(char *expr, char *result) {
+    char inner[100], tempResult[50];
+    int openIndex = -1, i;
+
+    for (i = 0; expr[i] != '\0'; i++) {
+        if (expr[i] == '(') openIndex = i; 
+        if (expr[i] == ')') { 
+            strncpy(inner, expr + openIndex + 1, i - openIndex - 1);
+            inner[i - openIndex - 1] = '\0';
+            processParentheses(inner, tempResult);
+            sprintf(expr + openIndex, "%s%s", tempResult, expr + i + 1);
+            i = openIndex;
+        }
+    }
+    processExpression(expr, result);
+}
+
+int main() {
+    char input[100], result[50];
+    printf("Enter the code: ");
+    scanf("%s", input);
+
+    processParentheses(input + 2, result); // Skip "d="
+    printf("d = %s\n", result);
+    return 0;
+}
+
+/*
+    d=(a-b)+(a+c)+(b*c)
+*/
+
+
+-------------------------------------------------------------------------------------
+
+
+Back End
+
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+#define MOV "MOVF"
+#define MUL "MULF"
+#define DIV "DIVF"
+#define ADD "ADDF"
+#define SUB "SUBF"
+
+void generateIntermediateCode(const char* expr) {
+    int regCount = 1; // Register counter
+    char output[100][50]; // Store instructions
+    int outIndex = 0; // Instruction index
+
+    // Process each character in the expression
+    for (int i = 0; i < strlen(expr); i++) {
+        if (expr[i] == '=') {
+            char dest[10];
+            strncpy(dest, expr, i); // Get the destination variable
+            dest[i] = '\0';
+            char src[50];
+            strcpy(src, expr + i + 1); // Get the source expression
+            
+            // Generate code for the source expression
+            for (int j = 0; j < strlen(src); j++) {
+                if (src[j] == '*') {
+                    sprintf(output[outIndex++], "%s R%d, R%d", MUL, regCount - 2, regCount - 1);
+                } else if (src[j] == '/') {
+                    sprintf(output[outIndex++], "%s R%d, R%d", DIV, regCount - 2, regCount - 1);
+                } else if (src[j] == '+') {
+                    sprintf(output[outIndex++], "%s R%d, R%d", ADD, regCount - 2, regCount - 1);
+                } else if (src[j] == '-') {
+                    sprintf(output[outIndex++], "%s R%d, R%d", SUB, regCount - 2, regCount - 1);
+                } else if (isalpha(src[j]) && src[j + 1] == 'd') { // Identifier like id1
+                    sprintf(output[outIndex++], "%s %c%c%c, R%d", MOV, src[j], src[j + 1], src[j + 2], regCount++);
+                    j += 2; // Skip the rest of the identifier
+                }
+            }
+
+            // Final assignment
+            sprintf(output[outIndex++], "%s R%d, %s", MOV, regCount - 1, dest);
+        }
+    }
+
+    // Print the generated instructions
+    printf("\nIntermediate Code:\n");
+    for (int i = 0; i < outIndex; i++) {
+        printf("%s\n", output[i]);
+    }
+}
+
+int main() {
+    char input[50];
+    printf("Enter the code: ");
+    fgets(input, sizeof(input), stdin);
+    input[strcspn(input, "\n")] = '\0'; // Remove newline
+
+    generateIntermediateCode(input);
+
+    return 0;
+}
+
+/*
+    id1=id2*id3+id4
+*/
+
+
+-------------------------------------------------------------------------------------
+
+
+Code Optimizer
+
+#include <stdio.h>
+#include <string.h>
+
+struct Operation {
+    char lhs;          // Left-hand side variable
+    char rhs[20];      // Right-hand side expression
+} operations[10], processed[10];
+
+int main() {
+    int i, j, k, numOperations, processedCount = 0;
+    char currentLHS, *isUsed;
+
+    printf("\nEnter the number of operations: ");
+    scanf("%d", &numOperations);
+
+    // Input the intermediate code
+    for (i = 0; i < numOperations; i++) {
+        printf("\nLeft : ");
+        scanf(" %c", &operations[i].lhs);  // Space before %c to handle newline
+        printf("Right : ");
+        scanf("%s", operations[i].rhs);
+    }
+
+    // Display intermediate code
+    printf("\nIntermediate Code:\n");
+    for (i = 0; i < numOperations; i++) {
+        printf("%c = %s\n", operations[i].lhs, operations[i].rhs);
+    }
+
+    // Dead Code Elimination
+    for (i = 0; i < numOperations; i++) {
+        currentLHS = operations[i].lhs;
+        isUsed = NULL;
+
+        // Check if the variable is used in later expressions or is the final result
+        for (j = 0; j < numOperations; j++) {
+            isUsed = strchr(operations[j].rhs, currentLHS);
+            if (isUsed || (i == numOperations - 1)) {  // Retain if used or last operation
+                processed[processedCount].lhs = operations[i].lhs;
+                strcpy(processed[processedCount].rhs, operations[i].rhs);
+                processedCount++;
+                break;
+            }
+        }
+    }
+
+    // Display after dead code elimination
+    printf("\nAfter Dead Code Elimination:\n");
+    for (i = 0; i < processedCount; i++) {
+        printf("%c = %s\n", processed[i].lhs, processed[i].rhs);
+    }
+
+    // Common Subexpression Elimination
+    for (i = 0; i < processedCount; i++) {
+        for (j = i + 1; j < processedCount; j++) {
+            if (strcmp(processed[i].rhs, processed[j].rhs) == 0) {  // Matching expressions
+                char redundantVar = processed[j].lhs;  // Save redundant variable
+                processed[j].lhs = processed[i].lhs;  // Replace with existing variable
+
+                // Replace redundant variable in all expressions
+                for (k = 0; k < processedCount; k++) {
+                    char *pos = strchr(processed[k].rhs, redundantVar);
+                    if (pos) {
+                        *pos = processed[i].lhs;
+                    }
+                }
+            }
+        }
+    }
+
+    // Display after eliminating common subexpressions
+    printf("\nAfter Eliminating Common Expressions:\n");
+    for (i = 0; i < processedCount; i++) {
+        printf("%c = %s\n", processed[i].lhs, processed[i].rhs);
+    }
+
+    // Remove redundant assignments
+    for (i = 0; i < processedCount; i++) {
+        for (j = i + 1; j < processedCount; j++) {
+            if (processed[i].lhs == processed[j].lhs && strcmp(processed[i].rhs, processed[j].rhs) == 0) {
+                processed[j].lhs = '\0';  // Mark as removed
+                strcpy(processed[j].rhs, "");  // Clear redundant expression
+            }
+        }
+    }
+
+    // Display optimized code
+    printf("\nOptimized Code:\n");
+    for (i = 0; i < processedCount; i++) {
+        if (processed[i].lhs != '\0') {  // Skip removed entries
+            printf("%c = %s\n", processed[i].lhs, processed[i].rhs);
+        }
+    }
+
+    return 0;
+}
+
+
+/*Enter the number of values: 5
+
+Left: a
+Right: 10
+
+Left: b
+Right: 20
+
+Left: c
+Right: a+b
+
+Left: d
+Right: a+b
+
+Left: e
+Right: a+d*/
